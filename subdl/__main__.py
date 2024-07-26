@@ -1,4 +1,4 @@
-from subdl.subdl import Subdl
+from subdl import Subdl
 
 def main():
     Subdl.usage()

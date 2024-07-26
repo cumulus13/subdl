@@ -5,32 +5,24 @@ import os
 
 NAME = "subdl"
 
-shutil.copy2('__version__.py', NAME)
+#shutil.copy2('__version__.py', NAME)
 
 # Read the README file
 with io.open("README.md", "rt", encoding="utf8") as f:
     readme = f.read()
-
-# Read the version from idm/__version__.py
-#version = {}
-#with open(os.path.join(NAME, "__version__.py")) as fp:
-    #exec(fp.read(), version)
-#version = version['version']
-
-# Determine the packages based on the extra provided
-#extra_packages = [NAME]
-
-import __version__
+    
+#import __version__
+exec(open(f'__version__.py').read())
 
 setup(
     name=NAME,
-    version=__version__.version,
+    version=version,
     url="https://github.com/cumulus13/subdl",
     project_urls={
         "Documentation": "https://github.com/cumulus13/subdl",
         "Code": "https://github.com/cumulus13/subdl",
     },
-    license="GPL",
+    license="MIT License",
     author="cumulus13",
     author_email="cumulus13@gmail.com",
     maintainer="cumulus13 Team",
@@ -38,8 +30,8 @@ setup(
     description="SubDL.com Downloader",
     long_description=readme,
     long_description_content_type="text/markdown",
-    package_data={'subdl': ['*.ini']}, 
-    packages=find_packages(),
+    package_data={'subdl': ['*.ini', 'README.md', '__version__.py']}, 
+    packages=[NAME],
     install_requires=[
         'argparse',
         'rich', 
@@ -54,11 +46,11 @@ setup(
             "subdl = subdl.Subdl:usage",
         ]
     },
-    data_files=['__version__.py', 'README.md'],
+    #data_files=['README.md', '__version__.py'],
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",  # Update if your license is different
+        "License :: OSI Approved :: MIT License",  
         "Operating System :: OS Independent",
         "Environment :: Console",
         "Intended Audience :: End Users/Desktop",
