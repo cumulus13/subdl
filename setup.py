@@ -50,7 +50,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "subdl = subdl.__main__:main",
+            #"subdl = subdl.__main__:main",
+            "subdl = subdl.Subdl:usage",
         ]
     },
     data_files=['__version__.py', 'README.md'],

@@ -1,7 +1,6 @@
-from subdl.subdl import Subdl  # Correctly import from subdl package
+from subdl.subdl import Subdl
 
 def main():
-    # Your main program logic goes here
     Subdl.usage()
 
 if __name__ == "__main__":
