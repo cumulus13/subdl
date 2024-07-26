@@ -38,15 +38,17 @@ setup(
         'configset', 
         'pydebugger',
         'make_colors', 
-        'requests'
+        'requests',
+        'bitmath',
+        'clipboard',
+        'unidecode'
     ],
     entry_points={
         "console_scripts": [
-            #"subdl = subdl.__main__:main",
-            "subdl = subdl.Subdl:usage",
+            "subdl = subdl.__main__:main",
         ]
     },
-    #data_files=['README.md', '__version__.py'],
+    data_files=['README.md', '__version__.py'],
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -13,7 +13,11 @@ else:
 import traceback
 from datetime import datetime
 import clipboard
-from xnotify import notify
+try:
+    from xnotify import notify
+    XNOTIFY = True
+except:
+    XNOTIFY = False
 from unidecode import unidecode
 import re
 
@@ -154,7 +158,7 @@ class Downloader:
         if os.path.isfile(os.path.join(os.path.dirname(__file__), 'logo.png')):
             icon = os.path.join(os.path.dirname(__file__), 'logo.png')
     
-        notify.send("SubDL", "downloading", 'downloading', "Download start: " + saveas, ['start', 'ready', 'downloading', 'finish', 'seleced', 'process', 'clipboard'], icon = icon)
+        if XNOTIFY: notify.send("SubDL", "downloading", 'downloading', "Download start: " + saveas, ['start', 'ready', 'downloading', 'finish', 'seleced', 'process', 'clipboard'], icon = icon)
     
         debug(url = url)
         if url:
