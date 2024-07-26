@@ -14,3 +14,4 @@ build/
 *.egg-info/
 traceback.log
 __pycache__/
+setup.py.1

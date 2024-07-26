@@ -17,7 +17,8 @@ from pathlib import Path
 import requests
 import re
 from rich.pretty import pprint
-from jsoncolor import jprint
+if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'):
+    from jsoncolor import jprint
 try:
     from .downloader import Downloader as downloader
 except ImportError:
@@ -39,7 +40,7 @@ class Subdl:
     URL = "https://api.subdl.com/"
     SESS = requests.Session()
     API_KEY = CONFIG.get_config('api', 'key', 'zUjcID8DcqKffRNVe43bc3y8byfCSRmn') or 'zUjcID8DcqKffRNVe43bc3y8byfCSRmn'
-
+    PARAMS = {}
 
     @classmethod
     def search(self, query, download_path = None, copy_to_clipboard = False, languages = ""):
@@ -52,9 +53,13 @@ class Subdl:
             'api_key': self.API_KEY,
             'languages': languages or self.CONFIG.get_config('lang', 'names', 'ID') or 'ID',
         }
+        
+        self.PARAMS.update(params)
+        
         debug(params = params)
+        debug(self_params = self.PARAMS, debug = 1)
         debug(url = url)
-        a = self.SESS.get(url, params = params)
+        a = self.SESS.get(url, params = self.PARAMS)
         content = a.json()
         debug(content = content)
         if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'): jprint(content)
@@ -97,6 +102,7 @@ class Subdl:
                     elif movie_selected.lower() in ('q', 'x', 'exit', 'quit'):
                         console.print("[#ff007f bold blink]Exit ....[/#ff007f bold blink]")
                         sys.exit(0)
+                        
             if content.get('subtitles'):
                 n = 1
                 for lang in langs:
@@ -159,7 +165,7 @@ class Subdl:
     @classmethod
     def usage(self):
         parser = argparse.ArgumentParser()
-        parser.add_argument('MOVIE', help = "Search movie name", action = 'store', nargs = '*')
+        parser.add_argument('MOVIE', help = "Search movie name or directory name, directory example: C:\MOVIES\Avatar (2023)", action = 'store', nargs = '*')
         parser.add_argument("-p", "--path", help = "Save download to directory", action = 'store')
         parser.add_argument('-c', '--clip', help = 'Just copy link download, don"t download', action = 'store_true')
         parser.add_argument("-l", '--langs', help = f'Languages, default is "{self.CONFIG.get_config("lang", "names") or "ID"}", from configfile "subdl.ini", format: "en,english,id,indonesia,jp,japan". use code lang or lang long name', nargs = '*')
@@ -211,7 +217,10 @@ class Subdl:
             else:
                 download_path = args.path
                 debug(download_path = download_path)
-
+            
+            year = re.findall("\((\d{0,4})\)", query)
+            if year:
+                self.PARAMS.update({'year': year[0],})
             query = re.sub("\(\d{0,4}\)", "", query)
             debug(query = query)
             debug(download_path = download_path)
