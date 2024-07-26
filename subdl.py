@@ -72,8 +72,38 @@ class Subdl:
                         download_link = self.DURL + link
                         debug(download_link = download_link)
                         #https://dl.subdl.com/subtitle/3392476-8315610
-                        downloader.downloader(download_link, copy_to_clipboard, name, copyurl_only = copy_to_clipboard) if link else console.print("[white on red bold blink]No Download link FOUND ![/]")
+                        downloader.downloader(download_link, download_path, name, copyurl_only = copy_to_clipboard) if link else console.print("[white on red bold blink]No Download link FOUND ![/]")
+                elif "," in sub_selected:
+                    list_number_selected = [i.strip() for i in sub_selected.split(",")]
+                    debug(list_number_selected = list_number_selected)
+                    list_number_selected = list(filter(lambda k: k.strip().isdigit(), list_number_selected))
+                    debug(list_number_selected = list_number_selected)
+                    for s in list_number_selected:
+                        if int(s) <= len(data):
+                            link = data[int(s) - 1].get("url")
+                            name = data[int(s) - 1].get("name")
+                            debug(link = link)
+                            debug(name = name)
+                            download_link = self.DURL + link
+                            debug(download_link = download_link)
+                            #https://dl.subdl.com/subtitle/3392476-8315610
+                            downloader.downloader(download_link, download_path, name, copyurl_only = copy_to_clipboard) if link else console.print("[white on red bold blink]No Download link FOUND ![/]")                        
                         
+                elif " " in sub_selected:
+                    list_number_selected = [i.strip() for i in sub_selected.split(" ")]
+                    debug(list_number_selected = list_number_selected)
+                    list_number_selected = list(filter(lambda k: k.strip().isdigit(), list_number_selected))
+                    debug(list_number_selected = list_number_selected)
+                    for s in list_number_selected:
+                        if int(s) <= len(data):
+                            link = data[int(s) - 1].get("url")
+                            name = data[int(s) - 1].get("name")
+                            debug(link = link)
+                            debug(name = name)
+                            download_link = self.DURL + link
+                            debug(download_link = download_link)
+                            #https://dl.subdl.com/subtitle/3392476-8315610
+                            downloader.downloader(download_link, download_path, name, copyurl_only = copy_to_clipboard) if link else console.print("[white on red bold blink]No Download link FOUND ![/]")                                            
                 elif sub_selected.lower() in ('q', 'x', 'exit', 'quit'):
                     console.print("[#ff007f bold blink]Exit ....[/#ff007f bold blink]")
                     sys.exit(0)
@@ -89,15 +119,21 @@ class Subdl:
             parser.print_help()
         else:
             args = parser.parse_args()
-            if os.path.isdir(args.MOVIE):
-                download_path = args.MOVIE
+            query = os.path.basename(" ".join(args.MOVIE))
+            debug(query = query, debug = 1)
+            if os.path.isdir(os.path.abspath(query.strip())):
+                download_path = os.path.abspath(query.strip())
+                debug("query download path is Directory [1]", download_path = download_path, debug = 1)
+            elif os.path.isdir(os.path.realpath(query.strip())):
+                download_path = os.path.realpath(query.strip())
+                debug("query download path is Directory [2]", download_path = download_path, debug = 1)
             else:
                 download_path = args.path
-            query = os.path.basename(" ".join(args.MOVIE))
-            debug(query = query)
+                debug(download_path = download_path, debug = 1)
+                
             query = re.sub("\(\d{0,4}\)", "", query)
-            debug(query = query)
-            debug(download_path = download_path)
+            debug(query = query, debug = 1)
+            debug(download_path = download_path, debug = 1)
             self.search(query.strip(), download_path, args.clip)
         
     
