@@ -7,7 +7,6 @@ from rich.console import Console
 from configset import configset
 from pathlib import Path
 import requests
-from bs4 import BeautifulSoup as bs
 import re
 from rich.pretty import pprint
 from jsoncolor import jprint
@@ -42,6 +41,8 @@ class Subdl:
             'api_key': self.API_KEY,
             'languages': self.CONFIG.get_config('lang', 'names', 'ID') or 'ID',
         }
+        debug(params = params)
+        debug(url = url)
         a = self.SESS.get(url, params = params)
         content = a.json()
         debug(content = content)
