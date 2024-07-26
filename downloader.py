@@ -60,6 +60,10 @@ class Downloader:
         
     @classmethod
     def downloader(self, url, download_path = None, saveas = None, confirm = False, copyurl_only = False, cookie = {}, postData = {}):
+        if copyurl_only:
+            clipboard.copy(url)
+            return
+        
         debug(download_path = download_path)    
         debug(saveas = saveas)
         
@@ -118,7 +122,7 @@ class Downloader:
             print(make_colors("DOWNLOAD PATH:", 'lw', 'bl') + " " + make_colors(download_path, 'lw', 'lr'))
         debug(download_path = download_path)
         debug(url = url)
-    
+        
         try:
             from idm import IDMan
             d = IDMan()
@@ -130,7 +134,7 @@ class Downloader:
     
         print(make_colors("DOWNLOAD LINK:", 'b', 'lc') + " " + make_colors(url, 'b', 'ly'))
     
-        if copyurl_only: clipboard.copy(url)
+        
         print(make_colors("SAVEAS:", 'lw', 'bl') + " " + make_colors(saveas, 'lw', 'r'))
         debug(url = url)
         debug(download_path = download_path)
