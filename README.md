@@ -56,5 +56,7 @@ options:
  - git+https://github.com/cumulus13/jsoncolor (option)
  - git+https://github.com/cumulus13/xnotify (option)
  
+ ``` you can change API_KEY in config file: `subdl.ini` ```
+ 
 ## Author
 [cumulus13](mailto:cumulus13@gmail.com)
