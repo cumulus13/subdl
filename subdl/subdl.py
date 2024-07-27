@@ -174,6 +174,8 @@ class Subdl:
             parser.print_help()
         else:
             args = parser.parse_args()
+            if args.MOVIE == ["."]:
+                args.MOVIE = [os.getcwd()]
             langs = []
             if args.langs:
                 for l in args.langs:
