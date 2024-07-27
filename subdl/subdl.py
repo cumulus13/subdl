@@ -57,7 +57,7 @@ class Subdl:
         self.PARAMS.update(params)
         
         debug(params = params)
-        debug(self_params = self.PARAMS, debug = 1)
+        debug(self_params = self.PARAMS)
         debug(url = url)
         a = self.SESS.get(url, params = self.PARAMS)
         content = a.json()
