@@ -1,3 +1,6 @@
+
+
+
 # SubDL.com Downloader
 
 ## Install
@@ -40,6 +43,18 @@ options:
    ```bash:
     subdl "Heart of Stone (2023)" -l id -p "c:\MOVIES\Heart of Stone (2023)"
    ```
-    
+ ### requirements (pip)
+ - argparse
+ - rich
+ - configset
+ - pydebugger
+ - make_colors
+ - requests
+ - bitmath
+ - clipboard
+ - unidecode
+ - git+https://github.com/cumulus13/jsoncolor (option)
+ - git+https://github.com/cumulus13/xnotify (option)
+ 
 ## Author
 [cumulus13](mailto:cumulus13@gmail.com)
