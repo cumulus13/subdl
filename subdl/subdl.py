@@ -63,13 +63,14 @@ class Subdl:
         content = a.json()
         debug(content = content)
         if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'): jprint(content)
-
+        langs = []
         #index_movie = 0
 
         if content.get('status') and content.get('results'):
-            console.print(f"[cyan b]Found[/cyan b] [white bold u]{len(content.get('results'))}[/white bold u]")
-            langs = list(set([i.get('lang') for i in content.get('subtitles')]))
-            debug(langs = langs)
+            if content.get('subtitles'):
+                console.print(f"[cyan b]Found[/cyan b] [white bold u]{len(content.get('results'))}[/white bold u]")
+                langs = list(set([i.get('lang') for i in content.get('subtitles')]))
+                debug(langs = langs)
             m = 1
             if len(content.get('results')) > 1:
                 for movie in content.get('results'):                
@@ -102,8 +103,14 @@ class Subdl:
                     elif movie_selected.lower() in ('q', 'x', 'exit', 'quit'):
                         console.print("[#ff007f bold blink]Exit ....[/#ff007f bold blink]")
                         sys.exit(0)
-                        
+            
+            debug(content_get_subtitles = content.get('subtitles'))
+            
             if content.get('subtitles'):
+                if not langs:
+                    console.print(f"[cyan b]Found[/cyan b] [white bold u]{len(content.get('results'))}[/white bold u]")
+                    langs = list(set([i.get('lang') for i in content.get('subtitles')]))
+                    debug(langs = langs)                
                 n = 1
                 for lang in langs:
                     console.print(f"- [#ffaa00 bold]{lang}[/#ffaa00 bold] [#ff00ff bold]{'(complete)' if str(lang).islower() else ''}")
