@@ -16,6 +16,11 @@ from configset import configset
 from pathlib import Path
 import requests
 import re
+try:
+    from .imdbcli import imdbcli
+except:
+    from imdbcli import imdbcli
+    
 from rich.pretty import pprint
 if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'):
     from jsoncolor import jprint
@@ -43,12 +48,12 @@ class Subdl:
     PARAMS = {}
 
     @classmethod
-    def search(self, query, download_path = None, copy_to_clipboard = False, languages = ""):
+    def search(self, query, download_path = None, copy_to_clipboard = False, languages = "", params = None):
 
         data = []
 
         url = self.URL + "api/v1/subtitles"
-        params = {
+        params = params or {
             'film_name': query,
             'api_key': self.API_KEY,
             'languages': languages or self.CONFIG.get_config('lang', 'names', 'ID') or 'ID',
@@ -118,6 +123,10 @@ class Subdl:
                         data.append(s)
                         console.print(f"[cyan bold]{n: 03}.[/cyan bold] [yellow bold]{s.get('name')}[/yellow bold]")
                         n += 1
+                    for s in list(filter(lambda k: k.get('lang') == lang.title(), content.get('subtitles'))):
+                        data.append(s)
+                        console.print(f"[cyan bold]{n: 03}.[/cyan bold] [yellow bold]{s.get('name')}[/yellow bold]")
+                        n += 1
     
                 sub_selected = input(make_colors("select number to download:", 'lw', 'bl') + " ")
                 debug(sub_selected = sub_selected)
@@ -169,6 +178,18 @@ class Subdl:
             else:
                 console.print("[white on red bold blink]No Subtitle FOUND ![/]")
                 sys.exit(0)
+        elif content.get('error') in ['Film name contains potentially unsafe characters', "can't find movie or tv"]:# or content.get('error'):
+            imdb_id = imdbcli().cli(query)
+            debug(imdb_id = imdb_id)
+            if imdb_id:
+                self.PARAMS = {}
+                params = {
+                'imdb_id': imdb_id,
+                'api_key': self.API_KEY,
+                'languages': languages or self.CONFIG.get_config('lang', 'names', 'ID') or 'ID',
+                }
+                return self.search(query, download_path, copy_to_clipboard, languages, params)
+                
     @classmethod
     def usage(self):
         parser = argparse.ArgumentParser()
@@ -217,19 +238,25 @@ class Subdl:
 
             query = os.path.basename(" ".join(args.MOVIE))
             debug(query = query)
-            if os.path.isdir(os.path.abspath(query.strip())):
+            
+            download_path = args.path
+            debug(download_path = download_path)
+            
+            if os.path.isdir(query):
+                download_path = query
+            elif os.path.isdir(os.path.abspath(query.strip())):
                 download_path = os.path.abspath(query.strip())
                 debug("query download path is Directory [1]", download_path = download_path)
             elif os.path.isdir(os.path.realpath(query.strip())):
                 download_path = os.path.realpath(query.strip())
                 debug("query download path is Directory [2]", download_path = download_path)
-            else:
-                download_path = args.path
-                debug(download_path = download_path)
+                
             
             year = re.findall("\((\d{0,4})\)", query)
             if year:
                 self.PARAMS.update({'year': year[0],})
+            if os.path.isdir(query):
+                query = os.path.basename(query)            
             query = re.sub("\(\d{0,4}\)", "", query)
             debug(query = query)
             debug(download_path = download_path)
