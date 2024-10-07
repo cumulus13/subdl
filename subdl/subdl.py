@@ -243,7 +243,7 @@ class Subdl:
             debug(download_path = download_path)
             
             if os.path.isdir(query):
-                download_path = query
+                download_path = os.path.realpath(query)
             elif os.path.isdir(os.path.abspath(query.strip())):
                 download_path = os.path.abspath(query.strip())
                 debug("query download path is Directory [1]", download_path = download_path)
