@@ -18,10 +18,10 @@ from pathlib import Path
 import requests
 import re
 import time
-try:
-    from .imdbcli import imdbcli
-except:
-    from imdbcli import imdbcli
+# try:
+#     from .imdbcli import imdbcli
+# except:
+#     from imdbcli import imdbcli
     
 from rich.pretty import pprint
 if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'):
@@ -194,16 +194,16 @@ class Subdl:
         # Try search with fallback strategies
         content = cls.search_with_fallback(query, languages)
         
-        if not content:
-            console.print("[white on red bold blink]No results found with any search strategy![/]")
-            # Try IMDB search as last resort
-            try:
-                imdb_id = imdbcli().cli(query)
-                debug(imdb_id=imdb_id)
-                if imdb_id:
-                    content = cls.api_search("", languages, imdb_id=imdb_id)
-            except Exception as e:
-                debug(f"IMDB search failed: {e}")
+        # if not content:
+        #     console.print("[white on red bold blink]No results found with any search strategy![/]")
+        #     # Try IMDB search as last resort
+        #     try:
+        #         imdb_id = imdbcli().cli(query)
+        #         debug(imdb_id=imdb_id)
+        #         if imdb_id:
+        #             content = cls.api_search("", languages, imdb_id=imdb_id)
+        #     except Exception as e:
+        #         debug(f"IMDB search failed: {e}")
                 
         if not content or not content.get('status'):
             console.print("[white on red bold blink]No Subtitle FOUND![/]")

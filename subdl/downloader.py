@@ -170,7 +170,7 @@ class Downloader:
         '''
             downloader: aria2c, wget, uget, persepolis
         '''
-        if saveas: saveas = re.sub("\.\.", ".", saveas)
+        if saveas: saveas = re.sub(r"\.\.", ".", saveas)
         if not download_path or not os.path.isdir(download_path):
             if self.CONFIG.get_config('DOWNLOAD', 'path', os.getcwd()):
                 download_path = self.CONFIG.get_config('DOWNLOAD', 'path')
