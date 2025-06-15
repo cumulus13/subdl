@@ -15,3 +15,8 @@ build/
 traceback.log
 __pycache__/
 setup.py.1
+*.html
+*.json
+*.ini
+subdl2.py
+subdl1.py

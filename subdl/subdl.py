@@ -1,380 +1,580 @@
 #!/usr/bin/env python3
-#coding:utf-8
 """
-  Author:  cumulus13 --<cumulus13@gmail.com>
-  Purpose: SubDL.com downloader - Fixed Version
-  Created: 07/26/24
-  Fixed: Better search handling and error recovery
+Subdl.com Scraper Subtitles 
+Script to search and download subtitles from subdl.com 
+Using a scraping web and fire (if there is a fire key)
 """
 
 import sys
+from ctraceback import CTraceback
+sys.excepthook = CTraceback(local=False)
 import os
+import requests
 import argparse
-from make_colors import make_colors
+import json
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, quote_plus, urlparse
+import time
+import re
 from pydebugger.debug import debug
+from rich_argparse import RichHelpFormatter, _lazy_rich as rr
+from typing import ClassVar
 from rich.console import Console
 from configset import configset
 from pathlib import Path
-import requests
-import re
-import time
-# try:
-#     from .imdbcli import imdbcli
-# except:
-#     from imdbcli import imdbcli
-    
-from rich.pretty import pprint
-if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'):
-    from jsoncolor import jprint
-try:
-    from .downloader import Downloader as downloader
-except ImportError:
-    from downloader import Downloader as downloader
-import argparse
-try:
-    from .langcode import CODE
-except ImportError:
-    from langcode import CODE
+import json
+import json5
+import ast
+from jsoncolor import jprint
 
 console = Console()
+CONFIGFILE = str(Path(__file__).parent / Path(__file__).stem) + '.ini'
+CONFIG = configset(CONFIGFILE)
 
-class Subdl:
+class CustomRichHelpFormatter(RichHelpFormatter):
+    """A custom RichHelpFormatter with modified styles."""
 
-    CONFIGFILE = str(Path(__file__).parent / 'subdl.ini')
-    CONFIG = configset(CONFIGFILE)
-    OURL = "https://subdl.com/"
-    DURL = "https://dl.subdl.com"
-    URL = "https://api.subdl.com/"
-    SESS = requests.Session()
-    API_KEY = CONFIG.get_config('api', 'key', 'zUjcID8DcqKffRNVe43bc3y8byfCSRmn') or 'zUjcID8DcqKffRNVe43bc3y8byfCSRmn'
-    PARAMS = {}
+    styles: ClassVar[dict[str, rr.StyleType]] = {
+        "argparse.args": "bold #FFFF00",  # Changed from cyan
+        "argparse.groups": "#AA55FF",   # Changed from dark_orange
+        "argparse.help": "bold #00FFFF",    # Changed from default
+        "argparse.metavar": "bold #FF00FF", # Changed from dark_cyan
+        "argparse.syntax": "underline", # Changed from bold
+        "argparse.text": "white",   # Changed from default
+        "argparse.prog": "bold #00AAFF italic",     # Changed from grey50
+        "argparse.default": "bold", # Changed from italic
+    }
 
-    @classmethod
-    def clean_query(cls, query):
-        """Clean and normalize search query"""
-        # Remove common video formats and quality indicators
-        query = re.sub(r'\.(mkv|mp4|avi|mov|wmv|flv|webm)$', '', query, flags=re.IGNORECASE)
-        query = re.sub(r'\b(720p|1080p|480p|4k|2160p|hdtv|webrip|bluray|brrip|dvdrip|cam|ts|tc)\b', '', query, flags=re.IGNORECASE)
-        query = re.sub(r'\b(x264|x265|h264|h265|xvid|divx)\b', '', query, flags=re.IGNORECASE)
-        query = re.sub(r'\b(aac|ac3|dts|mp3)\b', '', query, flags=re.IGNORECASE)
-        query = re.sub(r'\b(yify|etrg|rarbg|ettv|ganool)\b', '', query, flags=re.IGNORECASE)
-        query = re.sub(r'\[.*?\]', '', query)  # Remove content in brackets
-        query = re.sub(r'\{.*?\}', '', query)  # Remove content in braces
-        query = re.sub(r'\s+', ' ', query).strip()  # Normalize whitespace
-        return query
-
-    @classmethod
-    def extract_year(cls, query):
-        """Extract year from query"""
-        year_match = re.search(r'\b(19|20)\d{2}\b', query)
-        if year_match:
-            return year_match.group(0)
-        
-        # Also check for year in parentheses
-        paren_year = re.findall(r'\((\d{4})\)', query)
-        if paren_year:
-            return paren_year[0]
-        
-        return None
-
-    @classmethod
-    def search_with_fallback(cls, query, languages="", max_retries=3):
-        """Search with multiple fallback strategies"""
-        
-        # Strategy 1: Direct search
-        for attempt in range(max_retries):
-            try:
-                result = cls.api_search(query, languages)
-                if result and result.get('status') and result.get('subtitles'):
-                    debug(f"Direct search successful on attempt {attempt + 1}")
-                    return result
-            except Exception as e:
-                debug(f"Direct search attempt {attempt + 1} failed: {e}")
-                time.sleep(1)
-        
-        # Strategy 2: Clean query and retry
-        cleaned_query = cls.clean_query(query)
-        if cleaned_query != query:
-            debug(f"Trying with cleaned query: {cleaned_query}")
-            for attempt in range(max_retries):
-                try:
-                    result = cls.api_search(cleaned_query, languages)
-                    if result and result.get('status') and result.get('subtitles'):
-                        debug(f"Cleaned search successful on attempt {attempt + 1}")
-                        return result
-                except Exception as e:
-                    debug(f"Cleaned search attempt {attempt + 1} failed: {e}")
-                    time.sleep(1)
-        
-        # Strategy 3: Try with year extracted
-        year = cls.extract_year(query)
-        if year:
-            query_with_year = re.sub(r'\b' + re.escape(year) + r'\b', '', query).strip()
-            query_with_year = cls.clean_query(query_with_year)
-            debug(f"Trying with year parameter: {query_with_year}, year: {year}")
-            
-            for attempt in range(max_retries):
-                try:
-                    result = cls.api_search(query_with_year, languages, year=year)
-                    if result and result.get('status') and result.get('subtitles'):
-                        debug(f"Year-based search successful on attempt {attempt + 1}")
-                        return result
-                except Exception as e:
-                    debug(f"Year-based search attempt {attempt + 1} failed: {e}")
-                    time.sleep(1)
-        
-        # Strategy 4: Try word-by-word removal (for complex titles)
-        words = cleaned_query.split()
-        if len(words) > 2:
-            for i in range(len(words) - 1, 1, -1):
-                partial_query = ' '.join(words[:i])
-                debug(f"Trying partial query: {partial_query}")
-                
-                try:
-                    result = cls.api_search(partial_query, languages)
-                    if result and result.get('status') and result.get('subtitles'):
-                        debug(f"Partial search successful with: {partial_query}")
-                        return result
-                except Exception as e:
-                    debug(f"Partial search failed for {partial_query}: {e}")
-                    time.sleep(1)
-        
-        return None
-
-    @classmethod
-    def api_search(cls, query, languages="", year=None, imdb_id=None, tmdb_id=None):
-        """Make actual API call"""
-        url = cls.URL + "api/v1/subtitles"
-        
-        params = {
-            'api_key': cls.API_KEY,
-            'languages': languages or cls.CONFIG.get_config('lang', 'names', 'ID') or 'ID',
-        }
-        
-        if imdb_id:
-            params['imdb_id'] = imdb_id
-        elif tmdb_id:
-            params['tmdb_id'] = tmdb_id
-        else:
-            params['film_name'] = query
-        
-        if year:
-            params['year'] = year
-            
-        # Add additional headers to mimic browser behavior
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
+class SubDL:
+    def __init__(self):#, api_key='zUjcID8DcqKffRNVe43bc3y8byfCSRmn'):
+        self.base_url = "https://subdl.com"
+        # self.api_url = "https://api.subdl.com/api/v1"
+        self.api3_url = "https://api3.subdl.com/"
+        # self.api_key = api_key
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
             'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
             'Connection': 'keep-alive',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin'
+            'Upgrade-Insecure-Requests': '1',
+            # 'Referer': 'https://subdl.com/'
+        })
+
+    def search_api3(self, query):
+        """
+            Search subtitles using SubDL API3
+            example output:
+            {
+                "results": [
+                    {
+                        "link": "/subtitle/sd10434/diablo",
+                        "name": "Diablo",
+                        "original_name": "Diablo",
+                        "poster_url": "https://poster.subdl.com/poster/6uAVDyWhkXfaMo09hNpyqR0xkFp.jpg",
+                        "type": "movie",
+                        "year": 2016
+                    },
+                    {
+                        "link": "/subtitle/sd1301452/diablo-guardin",
+                        "name": "Diablo Guardi\u00c3\u00a1n",
+                        "original_name": "Diablo Guardi\u00c3\u00a1n",
+                        "poster_url": "https://poster.subdl.com/poster/5aPeosEyu2axBCRoFJ9osO4mEPo.jpg",
+                        "type": "tv",
+                        "year": 2018
+                    }
+                    ...
+                ]
+            }
+        """
+        # if not self.api_key:
+        #     return []
+            
+        endpoint = f"{self.api3_url}auto"
+        params = {
+            'query': quote_plus(query), 
         }
         
-        debug(params=params)
-        debug(url=url)
-        
-        response = cls.SESS.get(url, params=params, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        content = response.json()
-        debug(content=content)
-        
-        if os.getenv('DEBUG') == '1' or os.getenv('DEBUG_SERVER'): 
-            jprint(content)
+        try:
+            print(f"Search through fire: {endpoint}")
+            response = self.session.get(endpoint, params=params)
             
-        return content
-
-    @classmethod
-    def search(cls, query, download_path=None, copy_to_clipboard=False, languages="", params=None):
-        data = []
-        
-        # Try search with fallback strategies
-        content = cls.search_with_fallback(query, languages)
-        
-        # if not content:
-        #     console.print("[white on red bold blink]No results found with any search strategy![/]")
-        #     # Try IMDB search as last resort
-        #     try:
-        #         imdb_id = imdbcli().cli(query)
-        #         debug(imdb_id=imdb_id)
-        #         if imdb_id:
-        #             content = cls.api_search("", languages, imdb_id=imdb_id)
-        #     except Exception as e:
-        #         debug(f"IMDB search failed: {e}")
+            if response.status_code == 200:
+                data = response.json()
+                debug(data = data)
+                if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(data)
+                if data.get('results'):
+                    return data.get('results', [])
+                else:
+                    print("The fire did not return the results")
+            else:
+                print(f"API Response Code: {response.status_code}")
+                if response.status_code == 422:
+                    print("Error 422: invalid parameters or problematic fire fire")
                 
-        if not content or not content.get('status'):
-            console.print("[white on red bold blink]No Subtitle FOUND![/]")
-            if content and content.get('error'):
-                console.print(f"[red]API Error: {content.get('error')}[/red]")
+        except Exception as e:
+            print(f"Error API: {e}")
+        
+        return []
+
+    def search_web(self, query):
+        """
+            Finding Subtitles Using Web Scraping
+            This method scrapes the subdl.com website to find subtitles for a given query.
+        """
+        url = f"{self.base_url}/search/{quote_plus(query)}"
+        debug(url = url)
+        try:
+            response = self.session.get(url)
+            debug(status_code = response.status_code)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
+                with open('subdl_search.html', 'wb') as f:
+                    f.write(response.content)
+            if response.status_code == 200:
+                results = self._parse_html_results(response.content)
+                if results:
+                    return results
+            else:
+                print(f"HTTP {response.status_code} for {url}")
+                
+        except Exception as e:
+            print(f"Error accessing {url}: {e}")
+        
+        return []
+
+    def _parse_html_results(self, html):
+        """
+            Parse hasil HTML untuk mencari subtitle
+            Example output:
+            {
+                "buildId": "C5zLWqjvaXWJ4DrheckWW",
+                "defaultLocale": "en",
+                "gssp": true,
+                "isExperimentalCompile": false,
+                "isFallback": false,
+                "locale": "en",
+                "locales": [
+                    "en",
+                    "fa",
+                    ...
+                 ],
+                "page": "/search/[...slug]",
+                "props": {
+                    "__N_SSP": true,
+                    "pageProps": {
+                        "list": [
+                            {
+                                "name": "Diablo",
+                                "original_name": "Diablo",
+                                "poster_url": "https://poster.subdl.com/poster/6uAVDyWhkXfaMo09hNpyqR0xkFp.jpg",
+                                "sd_id": "sd10434",
+                                "slug": "diablo",
+                                "subtitles_count": 57,
+                                "type": "movie",
+                                "year": 2016
+                            },
+                            {
+                                "name": "Diablo",
+                                ...
+                        ],
+                        "query": "diablo",
+                        "scList": []
+                    }
+                },
+                "query": {
+                    "slug": [
+                        "diablo"
+                    ]
+                },
+                "scriptLoader": [
+                    {
+                        "dangerouslySetInnerHTML": {
+                            "__html": "{\"@context\":\"https://schema.org\",\"@type\":\"WebSite\",\"url\":\"https://subdl.com\",\"potentialAction\":{\"@type\":\"SearchAction\",\"target ...
+                         },
+                        "id": "json-ld",
+                        "strategy": "afterInteractive",
+                        "type": "application/ld+json"
+                    },
+                    {
+                        "async": true,
+                        "id": "GA1",
+                        "src": "https://www.googletagmanager.com/gtag/js?id=G-N02LL12MHK",
+                        "strategy": "afterInteractive"
+                    },
+                    {
+                        "dangerouslySetInnerHTML": {
+                            "__html": "\n            window.dataLayer = window.dataLayer || [];\n            function gtag(){dataLayer.push(arguments);}\n            gtag('js', new Date());\n            \n            gtag('config', 'G-N02LL12MHK');\n            "
+                        },
+                        "id": "GA",
+                        "strategy": "afterInteractive"
+                    }
+                ]
+            }
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        results = []
+        
+        # find __NEXT_DATA__
+        # next_data = soup.find('script', type='application/ld+json', id='__NEXT_DATA__')
+        next_data = soup.find('script', id='__NEXT_DATA__')
+        debug(next_data = next_data)
+        next_data_json = json5.loads(next_data.string) if next_data else {}
+        debug(next_data_json = next_data_json)
+        if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(next_data_json)
+        
+        return next_data_json
+            
+    def print_list_api3(self, results):
+        """
+            Print the list of results from API3
+        """
+        if not results:
+            print("No results found.")
             return
-
-        langs = []
         
-        # Handle multiple movie results
-        if content.get('results') and len(content.get('results')) > 1:
-            console.print(f"[cyan b]Found[/cyan b] [white bold u]{len(content.get('results'))}[/white bold u] movies")
-            m = 1
-            for movie in content.get('results'):
-                year_info = f" ({movie.get('year')})" if movie.get('year') else ""
-                console.print(f"[cyan bold]{m:03}.[/] [#55ff00 bold]{movie.get('name')}{year_info}[/#55ff00 bold]")
-                m += 1
-
-            movie_selected = input(make_colors("Select movie number to download:", 'lw', 'm') + " ")
-            if movie_selected and movie_selected.isdigit():
-                selected_idx = int(movie_selected) - 1
-                if 0 <= selected_idx < len(content.get('results')):
-                    selected_movie = content.get('results')[selected_idx]
-                    
-                    # Search again with specific movie parameters
-                    search_params = {}
-                    if selected_movie.get('imdb_id'):
-                        content = cls.api_search("", languages, imdb_id=selected_movie.get('imdb_id'))
-                    elif selected_movie.get('tmdb_id'):
-                        content = cls.api_search("", languages, tmdb_id=selected_movie.get('tmdb_id'))
-                    else:
-                        content = cls.api_search(selected_movie.get('name'), languages, 
-                                               year=selected_movie.get('year'))
-            elif movie_selected and movie_selected.lower() in ('q', 'x', 'exit', 'quit'):
-                console.print("[#ff007f bold blink]Exit....[/#ff007f bold blink]")
-                sys.exit(0)
-
-        # Process subtitles
-        if content.get('subtitles'):
-            console.print(f"[cyan b]Found[/cyan b] [white bold u]{len(content.get('subtitles'))}[/white bold u] subtitles")
-            langs = list(set([i.get('lang') for i in content.get('subtitles')]))
-            debug(langs=langs)
+        for index, item in enumerate(results):
+            name = item.get('name', 'Unknown')
+            original_name = item.get('original_name', 'Unknown')
+            poster_url = item.get('poster_url', '')
+            year = item.get('year', 'Unknown')
+            subtitle_type = item.get('type', 'Unknown')
+            link = item.get('link', '')
             
-            n = 1
-            for lang in langs:
-                lang_name = CODE.get(lang.lower(), lang)
-                console.print(f"- [#ffaa00 bold]{lang} ({lang_name})[/#ffaa00 bold]")
-                
-                # Get subtitles for this language (both cases)
-                lang_subs = [s for s in content.get('subtitles') 
-                           if s.get('lang', '').lower() == lang.lower()]
-                
-                for s in lang_subs:
-                    data.append(s)
-                    release_info = f" - {s.get('release', '')}" if s.get('release') else ""
-                    console.print(f"[cyan bold]{n:03}.[/cyan bold] [yellow bold]{s.get('name')}{release_info}[/yellow bold]")
-                    n += 1
-
-            # Handle subtitle selection
-            sub_selected = input(make_colors("Select subtitle number(s) to download (comma/space separated):", 'lw', 'bl') + " ")
-            debug(sub_selected=sub_selected)
+            if subtitle_type == 'movie':
+                console.print(f"{index + 1}. [#00FFFF]{name}[/] [#FFFF00]({year})[/] - {subtitle_type}")
+            elif subtitle_type == 'tv':
+                console.print(f"{index + 1}. [#FFAA00]{name}[/] [#FFFF00]({year})[/] - {subtitle_type}")
+            # print(f"   Original Name: {original_name}")
+            # if poster_url:
+            #     print(f"   Poster URL: {poster_url}")
+            # print(f"   Link: {self.base_url}{link}\n")
+        
+        q = console.input("[bold #00FFFF]Enter the number of the subtitle to download:[/] ")
+        if q and q.lower() in ['x', 'exit', 'q', 'quit']:
+            print("Exiting...")
+            return None
+        try:
+            index = int(q) - 1
+            if 0 <= index < len(results):
+                selected_item = results[index]
+                return selected_item
+            else:
+                print("Invalid selection.")
+        except ValueError:
+            print("Please enter a valid number.")
             
-            if sub_selected:
-                if sub_selected.lower() in ('q', 'x', 'exit', 'quit'):
-                    console.print("[#ff007f bold blink]Exit....[/#ff007f bold blink]")
-                    sys.exit(0)
-                
-                # Parse selection (single number, comma-separated, or space-separated)
-                selected_numbers = []
-                if sub_selected.isdigit():
-                    selected_numbers = [int(sub_selected)]
-                elif "," in sub_selected:
-                    selected_numbers = [int(i.strip()) for i in sub_selected.split(",") 
-                                      if i.strip().isdigit()]
-                elif " " in sub_selected:
-                    selected_numbers = [int(i.strip()) for i in sub_selected.split() 
-                                      if i.strip().isdigit()]
-                
-                # Download selected subtitles
-                for num in selected_numbers:
-                    if 1 <= num <= len(data):
-                        subtitle = data[num - 1]
-                        link = subtitle.get("url")
-                        name = subtitle.get("name")
-                        
-                        if link:
-                            download_link = cls.DURL + link
-                            debug(download_link=download_link)
-                            debug(name=name)
-                            
-                            try:
-                                downloader.downloader(download_link, download_path, name, 
-                                                    copyurl_only=copy_to_clipboard)
-                                console.print(f"[green]✓ Downloaded: {name}[/green]")
-                            except Exception as e:
-                                console.print(f"[red]✗ Failed to download {name}: {e}[/red]")
-                        else:
-                            console.print("[white on red bold blink]No Download link FOUND![/]")
+        return None
+    
+    def print_list_web(self, results):
+        """
+            Print the list of results from web search
+            This method is not implemented yet.
+        """
+        print("Web search results:")
+        results = results.get('props', {}).get('pageProps', {}).get('list', [])
+        for index, item in enumerate(results):
+            debug(item = item)
+            name = item.get('name', 'Unknown')
+            original_name = item.get('original_name', 'Unknown')
+            poster_url = item.get('poster_url', '')
+            year = item.get('year', 'Unknown')
+            subtitle_type = item.get('type', 'Unknown')
+            link = item.get('link', '')
+            
+            print(f"{index + 1}. {name} ({year}) - {subtitle_type}")
+            # print(f"   Original Name: {original_name}")
+            # if poster_url:
+            #     print(f"   Poster URL: {poster_url}")
+            # print(f"   Link: {self.base_url}{link}\n")
+        
+        q = input("Enter the number of the subtitle to download: ")
+        if q and q.lower() in ['x', 'exit', 'q', 'quit']:
+            print("Exiting...")
+            return None
+        try:
+            index = int(q) - 1
+            if 0 <= index < len(results):
+                selected_item = results[index]
+                return selected_item
+            else:
+                print("Invalid selection.")
+        except ValueError:
+            print("Please enter a valid number.")
+            
+        return None
+    
+    def get_download_links(self, data, build_id=None):
+        """
+            Get download links from the subtitle page
+            This method scrapes the subtitle page to find download links.
+        """
+        debug(data = data)
+        url = None
+        data_links = {}
+        #example must be url: https://subdl.com/_next/data/C5zLWqjvaXWJ4DrheckWW/en/subtitle/sd12679827/diablo.json?slug=sd12679827&slug=diablo
+        # https://subdl.com/_next/data/C5zLWqjvaXWJ4DrheckWW/en/subtitle/sd87696/avengersendgame.json?slug=sd87696&slug=avengersendgame
+        # https://subdl.com/_next/data/C5zLWqjvaXWJ4DrheckWW/en/subtitle/sd87696/avengersendgame.json?slug=sd87696&slug=avengersendgame
+        if isinstance(data, dict) and data.get('slug') and build_id:
+            slug = data['slug']
+            debug(slug = slug)
+            sd_id = data.get('sd_id', '')
+            debug(sd_id = sd_id)
+            url = f"{self.base_url}/_next/data/{build_id}/en/subtitle/{sd_id}/{slug}.json?slug={sd_id}&slug={slug}"
+            debug(url = url)
+            response = self.session.get(url)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
+                with open('subdl_subtitle_web1.json', 'wb') as f:
+                    f.write(response.content)
+            data_links = response.json()
+            debug(data_links = data_links)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(data_links)
+            
+        elif isinstance(data, dict) and data.get('link'):
+            # If data is a string, it might be a link
+            url = urljoin(self.base_url, data.get('link', ''))
+            debug(url = url)
+        
+            response = self.session.get(url)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
+                with open('subdl_subtitle_web.html', 'wb') as f:
+                    f.write(response.content)
+            data_links = self._parse_html_results(response.content)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
+                with open('subdl_subtitle_web2.json', 'w') as f:
+                    f.write(str(data_links))
+            debug(data_links = data_links)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(data_links)
+            
         else:
-            console.print("[white on red bold blink]No Subtitles FOUND![/]")
-
-    @classmethod
-    def usage(cls):
-        parser = argparse.ArgumentParser(description="SubDL.com subtitle downloader")
-        parser.add_argument('MOVIE', 
-                          help="Search movie name or directory name", 
-                          action='store', nargs='*')
-        parser.add_argument("-p", "--path", 
-                          help="Save download to directory", 
-                          action='store')
-        parser.add_argument('-c', '--clip', 
-                          help='Just copy link download, don\'t download', 
-                          action='store_true')
-        parser.add_argument("-l", '--langs', 
-                          help=f'Languages, default is "{cls.CONFIG.get_config("lang", "names") or "ID"}"', 
-                          nargs='*')
-
+            print("Invalid data format for download links.")
+            return {}
+        
+        if not data_links:
+            print("No download links found.")
+            return {}
+        
+        return data_links
+    
+    def download_subtitle(self, download_url, output_dir='subtitles'):
+        """
+            Download the subtitle file from the given URL
+            This method downloads the subtitle file and saves it to the specified output directory.
+            Download use rich with progress bar
+        """
+        if not download_url:
+            print("No download URL provided.")
+            return
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        filename = os.path.basename(download_url)
+        output_path = os.path.join(output_dir, filename)
+        
+        try:
+            response = self.session.get(download_url, stream=True)
+            if response.status_code == 200:
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                print(f"Subtitle downloaded successfully: {output_path}")
+            else:
+                print(f"Failed to download subtitle. HTTP Status Code: {response.status_code}")
+        except Exception as e:
+            print(f"Error downloading subtitle: {e}")
+    
+    def print_list_subtitles(self, data_links, download_path = None):
+        """
+            Print the list of subtitles from get_download_links
+        """
+        debug(data_links = data_links)
+        if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(data_links)
+        data_langs = data_links.get('props').get('pageProps').get('langList')
+        for index, lang in enumerate(data_langs):
+            #"langList": [
+            # { "lang": "arabic", "count": 42 },
+            # { "lang": "farsi_persian", "count": 73 },
+        
+            console.print(f"{str(index + 1).zfill(2)}. [#00FFFF]{lang['lang']}[/] - [#FFFF00]{lang['count']}[/] subtitles")
+        
+        q1 = console.input("[bold #00FFFF]Enter the number of the language to download subtitles:[/] ")
+        if q1 and q1.lower() in ['x', 'exit', 'q', 'quit']:
+            print("Exiting...")
+            return None
+        if q1.isdigit() and int(q1) <= len(data_langs):
+            index = int(q1) - 1
+            if 0 <= index < len(data_langs):
+                selected_lang = data_langs[index]
+                lang = selected_lang['lang']
+                count = selected_lang['count']
+                console.print(f"Selected Language: [#00FFFF]{lang}[/] with [#FFFF00]{count}[/] subtitles")
+                
+                # Get the download links for the selected language
+                list_subtitles = data_links.get('props').get('pageProps', {}).get('groupedSubtitles', {}).get(lang, [])
+                #example:
+                # "groupedSubtitles": {
+                # "arabic": [
+                #     {
+                #         "id": 758663,
+                #         "language": "arabic",
+                #         "quality": "trailar",
+                #         "link": "758663-1949685.zip",
+                #         "bucketLink": "758663/1949685.zip",
+                #         "author": "kimosubtitles",
+                #         "season": 0,
+                #         "episode": 0,
+                #         "title": "Marvel Studios' Avengers_ Endgame - Official Trailer",
+                #         "extra": "",
+                #         "e": true,
+                #         "n_id": "nYPJ3MdcxI",
+                #         "downloads": 113,
+                #         "hi": 0,
+                #         "releases": [],
+                #         "rate": null,
+                #         "date": 1552597500000,
+                #         "comment": "ترجمه   kamel Ahmed",
+                #         "slug": "avengersendgame"
+                #     },
+                if not list_subtitles:
+                    print(f"No subtitles found for language: {lang}")
+                    return
+                print(f"Subtitles for language: {lang} ({count} found)")
+                for sub_index, subtitle in enumerate(list_subtitles):
+                    title = subtitle.get('title', 'Unknown')
+                    author = subtitle.get('author', 'Unknown')
+                    downloads = subtitle.get('downloads', 0)
+                    date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(subtitle.get('date', 0) / 1000))
+                    console.print(f"{str(sub_index + 1).zfill(2)}. [#00FFFF]{title}[/] by [#FFFF00]{author}[/] - [#FFAA00]{downloads}[/] downloads on {date} ({subtitle.get('quality', 'Unknown')})")
+                    
+                q2 = console.input("[bold #00FFFF]Enter the number of the subtitle to download:[/] ")
+                if q2 and q2.lower() in ['x', 'exit', 'q', 'quit']:
+                    print("Exiting...")
+                    return None
+                if q2.isdigit() and int(q2) <= len(list_subtitles):
+                    sub_index = int(q2) - 1
+                    if 0 <= sub_index < len(list_subtitles):
+                        selected_subtitle = list_subtitles[sub_index]
+                        link = selected_subtitle.get('link', '')
+                        if link:
+                            # example: https://dl.subdl.com/subtitle/758781-2025215.zip
+                            download_url = f"https://dl.subdl.com/subtitle/{link}"
+                            debug(download_url = download_url)
+                            print(f"Downloading subtitle: {selected_subtitle.get('title', 'Unknown')} from {download_url}")
+                            self.download_subtitle(download_url, download_path or 'subtitles')
+                        else:
+                            print("No download link found for the selected subtitle.")
+                    else:
+                        print("Invalid selection.")
+                elif q2 and q2 == 'a':
+                    print("Downloading all subtitles...")
+                    for subtitle in list_subtitles:
+                        link = subtitle.get('link', '')
+                        if link:
+                            download_url = f"https://dl.subdl.com/subtitle/{link}"
+                            debug(download_url = download_url)
+                            print(f"Downloading subtitle: {subtitle.get('title', 'Unknown')} from {download_url}")
+                            self.download_subtitle(download_url, download_path or 'subtitles')
+                        else:
+                            print("No download link found for the subtitle.")
+                elif q2 and "," in q2:
+                    print("Downloading multiple subtitles...")
+                    indices = [int(i.strip()) - 1 for i in q2.split(',') if i.strip().isdigit()]
+                    for sub_index in indices:
+                        if 0 <= sub_index < len(list_subtitles):
+                            selected_subtitle = list_subtitles[sub_index]
+                            link = selected_subtitle.get('link', '')
+                            if link:
+                                download_url = f"https://dl.subdl.com/subtitle/{link}"
+                                debug(download_url = download_url)
+                                print(f"Downloading subtitle: {selected_subtitle.get('title', 'Unknown')} from {download_url}")
+                                self.download_subtitle(download_url, download_path or 'subtitles')
+                            else:
+                                print(f"No download link found for subtitle index {sub_index + 1}.")
+                        else:
+                            print(f"Invalid selection for subtitle index {sub_index + 1}.")
+                elif q2 and " " in q2.strip():
+                    print("Downloading multiple subtitles by name...")
+                    names = [name.strip() for name in q2.split(' ') if name.strip()]
+                    for name in names:
+                        found = False
+                        for subtitle in list_subtitles:
+                            if subtitle.get('title', '').lower() == name.lower():
+                                link = subtitle.get('link', '')
+                                if link:
+                                    download_url = f"https://dl.subdl.com/subtitle/{link}"
+                                    debug(download_url = download_url)
+                                    print(f"Downloading subtitle: {subtitle.get('title', 'Unknown')} from {download_url}")
+                                    self.download_subtitle(download_url, download_path or 'subtitles')
+                                    found = True
+                                    break
+                        if not found:
+                            print(f"No subtitle found with the name: {name}")
+            else:
+                print("Invalid selection.")
+    
+    def navigator(self, query, force_web = False, download_path = None):
+        """
+            Navigate through the results and download subtitles
+        """
+        data_links = {}
+        if not force_web:
+            # Search using API3
+            results = self.search_api3(query)
+            if results:
+                selected_item = self.print_list_api3(results)
+                debug(selected_item = selected_item)
+                data_links = self.get_download_links(selected_item)
+        
+        if not results or force_web:
+            print("No results found in API3, trying web search...")
+            # Fallback to web search
+            results = self.search_web(query)
+            if results:
+                selected_item = self.print_list_web(results)
+                debug(selected_item = selected_item)
+                if selected_item:
+                    build_id = results.get('buildId', '')
+                    debug(build_id = build_id)
+                    data_links = self.get_download_links(selected_item, build_id)
+                else:
+                    print("No valid selection made from web search.")
+            else:
+                print("No results found in web search.")
+                return
+        
+        if data_links:
+            debug(data_links = data_links)
+            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(data_links)
+            self.print_list_subtitles(data_links, download_path)
+            
+    def usage(self):
+        """
+            Usage of the SubDL script
+        """
+        parser = argparse.ArgumentParser(
+            description="Subdl.com Scraper Subtitles",
+            formatter_class=CustomRichHelpFormatter
+        )
+        parser.add_argument('query', type=str, help='Search query for subtitles')
+        parser.add_argument('--web', action='store_true', help='Force web search instead of API3')
+        parser.add_argument('-p', '--download-path', type=str, default='subtitles', help='Path to save downloaded subtitles (default: subtitles)')
+        
         if len(sys.argv) == 1:
             parser.print_help()
-            return
-
+            sys.exit(1)
+        
         args = parser.parse_args()
         
-        if not args.MOVIE:
-            parser.print_help()
-            return
-            
-        if args.MOVIE == ["."]:
-            args.MOVIE = [os.getcwd()]
-
-        # Process language arguments
-        langs = []
-        if args.langs:
-            for l in args.langs:
-                l_lower = l.lower()
-                if l_lower in CODE:
-                    langs.append(l_lower)
-                else:
-                    # Try to find by language name
-                    found_codes = [k for k, v in CODE.items() if v.lower() == l_lower]
-                    if found_codes:
-                        langs.append(found_codes[0])
-                    else:
-                        console.print(f"[yellow]Warning: Language '{l}' not recognized[/yellow]")
-
-        languages = ",".join(langs) if langs else None
-        debug(languages=languages)
-
-        # Process movie query
-        query = " ".join(args.MOVIE)
-        debug(original_query=query)
+        if args.query:
+            print(f"Searching for subtitles: {args.query}")
+            query = args.query[:-1] if args.query.endswith('/') else args.query
+            download_path = args.download_path
+            if os.path.isdir(query):
+                download_path = query
+            self.navigator(query, force_web=args.web, download_path=download_path)
+        else:
+            print("Please provide a search query.")
         
-        # Determine download path
-        download_path = args.path
-        
-        if os.path.isdir(query):
-            download_path = os.path.realpath(query)
-            query = os.path.basename(query)
-        elif not download_path:
-            # Try to determine if query contains a path
-            potential_path = os.path.dirname(query)
-            if potential_path and os.path.isdir(potential_path):
-                download_path = potential_path
-                query = os.path.basename(query)
-        
-        debug(final_query=query)
-        debug(download_path=download_path)
-        
-        # Start search
-        cls.search(query.strip(), download_path, args.clip, languages)
-
-
-if __name__ == '__main__':
-    Subdl.usage()
+if __name__ == "__main__":
+    SubDL().usage()
