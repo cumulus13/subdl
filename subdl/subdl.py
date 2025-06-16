@@ -11,20 +11,16 @@ sys.excepthook = CTraceback(local=False)
 import os
 import requests
 import argparse
-import json
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, quote_plus, urlparse
 import time
-import re
 from pydebugger.debug import debug
 from rich_argparse import RichHelpFormatter, _lazy_rich as rr
 from typing import ClassVar
 from rich.console import Console
 from configset import configset
 from pathlib import Path
-import json
 import json5
-import ast
 from jsoncolor import jprint
 
 console = Console()

@@ -1,7 +1,7 @@
-from . subdl import Subdl
+from . subdl import SubDL
 
 def main():
-    Subdl.usage()
+    SubDL().usage()
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,9 @@
+pydebugger
+rich
+requests
+bs4
+ctraceback
+rich_argparse
+git+https://github.com/cumulus13/jsoncolor
+json5
+configset

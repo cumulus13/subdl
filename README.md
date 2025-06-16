@@ -1,62 +1,113 @@
+# SubDL - Subtitle Downloader & Scraper for subdl.com
 
+**SubDL** is a Python-powered CLI tool for searching and downloading subtitles from [subdl.com](https://subdl.com).  
+It supports both API and web scraping, offers interactive selection, and features a rich progress bar for downloads.
 
+---
 
-# SubDL.com Downloader
+## 🚀 Features
 
-## Install
+- **Search subtitles** via SubDL API or web scraping fallback
+- **Interactive selection** of movies/series and subtitle languages
+- **Batch download**: download all, by index, or by name
+- **Rich progress bar** for downloads
+- **Debugging & pretty-print** for developers (with `DEBUG` env)
+- **Customizable download path**
+- **Python 3.8+** compatible
 
-```bash:
+---
 
-$ pip install git+https://github.com/cumulus13/subdl
+## ⚡ Installation
 
-```
-or 
-
-```bash:
-$ git clone https://github.com/cumulus13/subdl
-$ cd subdl
-$ pip install .
-
-```
-
-## Usage
-```bash:
-subdl [-h] [-p PATH] [-c] [-l [LANGS ...]] MOVIE
-
-positional arguments:
-  MOVIE                 Search movie name
-
-options:
-  -h, --help            show this help message and exit
-  -p PATH, --path PATH  Save download to directory
-  -c, --clip            Just copy link download, don"t download
-  -l [LANGS ...], --langs [LANGS ...]
-                        Languages, default is "EN", from configfile "subdl.ini", format: "en,english,id,indonesia,jp,japan". use
-                        code lang or lang long name
-```
-### example usage:
-   - download with folder name and save it in that folder
-   ```bash:
-    subdl "c:\MOVIES\Avatar (2023)" -l jp
+1. **Clone this repo:**
+   ```bash
+   git clone https://github.com/yourusername/subdl.git
+   cd subdl/subdl
    ```
-   - download by movie name and save it to folder "C:\MOVIES\Heart of Stone (2023)"
-   ```bash:
-    subdl "Heart of Stone (2023)" -l id -p "c:\MOVIES\Heart of Stone (2023)"
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
    ```
- ### requirements (pip)
- - argparse
- - rich
- - configset
- - pydebugger
- - make_colors
- - requests
- - bitmath
- - clipboard
- - unidecode
- - git+https://github.com/cumulus13/jsoncolor (option)
- - git+https://github.com/cumulus13/xnotify (option)
- 
- ``` you can change API_KEY in config file: `subdl.ini` ```
+   Or manually:
+   ```bash
+   pip install requests beautifulsoup4 rich rich-argparse configset jsoncolor json5
+   ```
+
+---
+
+## 🛠️ Usage
+
+### Basic search and download
+```bash
+python subdl.py "movie or series name"
+```
+
+### Force web scraping (if API fails or for more results)
+```bash
+python subdl.py "movie name" --web
+```
+
+### Set custom download directory
+```bash
+python subdl.py "movie name" -p ./my_subtitles
+```
+
+### Interactive selection
+- Choose the movie/series from the list
+- Choose subtitle language
+- Choose subtitle(s) to download (single, multiple, or all)
+
+### Batch download
+- Enter `a` to download all subtitles in a language
+- Enter `1,3,5` to download by indices
+- Enter subtitle names separated by space to download by name
+
+---
+
+## 🧑‍💻 Developer/Debug Mode
+
+Set `DEBUG` or `DEBUG_SERVER` in your environment to enable extra logging and pretty JSON dumps:
+```bash
+export DEBUG=1
+python subdl.py "movie name"
+```
+
+---
+
+## 📦 Example
+
+```bash
+python subdl.py "avengers endgame"
+```
+- Select the movie from the list
+- Select language (e.g. English)
+- Select subtitle(s) to download
+
+---
+
+## 📝 Notes
+
+- This tool scrapes subdl.com and may break if the site changes.
+- For best results, use Python 3.8+ and a modern terminal.
+- All downloads go to the `subtitles` folder by default (or your custom path).
+
+---
+
+## 🪲 Issues & Contributions
+
+- Found a bug? Open an issue or PR!
+- Want a new feature? Fork and hack away!
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+**Happy subtitle hunting! 🎬**
  
 ## Author
 [Hadi Cahyadi](mailto:cumulus13@gmail.com)

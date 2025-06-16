@@ -33,15 +33,15 @@ setup(
     package_data={'subdl': ['*.ini', 'README.md', '__version__.py']}, 
     packages=[NAME],
     install_requires=[
-        'argparse',
-        'rich', 
-        'configset', 
         'pydebugger',
-        'make_colors', 
+        'rich',
         'requests',
-        'bitmath',
-        'clipboard',
-        'unidecode'
+        'bs4',
+        'ctraceback',
+        'rich_argparse',
+        'git+https://github.com/cumulus13/jsoncolor.git',
+        'json5',
+        'configset'
     ],
     entry_points={
         "console_scripts": [
