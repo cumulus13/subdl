@@ -39,7 +39,7 @@ setup(
         'bs4',
         'ctraceback',
         'rich_argparse',
-        'git+https://github.com/cumulus13/jsoncolor.git',
+        'jsoncolor @ git+https://github.com/cumulus13/jsoncolor.git',
         'json5',
         'configset'
     ],
