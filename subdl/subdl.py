@@ -12,7 +12,7 @@ import os
 import requests
 import argparse
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, quote_plus, urlparse
+from urllib.parse import urljoin
 import time
 from pydebugger.debug import debug
 from rich_argparse import RichHelpFormatter, _lazy_rich as rr
@@ -27,6 +27,21 @@ console = Console()
 CONFIGFILE = str(Path(__file__).parent / Path(__file__).stem) + '.ini'
 CONFIG = configset(CONFIGFILE)
 
+try:
+    from .config import Config
+except ImportError:
+    from config import Config
+
+try:
+    from .web_scrap import WebScrap
+except ImportError:
+    from web_scrap import WebScrap
+
+try:
+    from .api_scrap import ApiScrap
+except ImportError:
+    from api_scrap import ApiScrap
+        
 class CustomRichHelpFormatter(RichHelpFormatter):
     """A custom RichHelpFormatter with modified styles."""
 
@@ -41,105 +56,11 @@ class CustomRichHelpFormatter(RichHelpFormatter):
         "argparse.default": "bold", # Changed from italic
     }
 
-class SubDL:
+class SubDL(WebScrap, ApiScrap):
     def __init__(self):#, api_key='zUjcID8DcqKffRNVe43bc3y8byfCSRmn'):
-        self.base_url = "https://subdl.com"
-        # self.api_url = "https://api.subdl.com/api/v1"
-        self.api3_url = "https://api3.subdl.com/"
-        # self.api_key = api_key
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            # 'Referer': 'https://subdl.com/'
-        })
-
-    def search_api3(self, query):
-        """
-            Search subtitles using SubDL API3
-            example output:
-            {
-                "results": [
-                    {
-                        "link": "/subtitle/sd10434/diablo",
-                        "name": "Diablo",
-                        "original_name": "Diablo",
-                        "poster_url": "https://poster.subdl.com/poster/6uAVDyWhkXfaMo09hNpyqR0xkFp.jpg",
-                        "type": "movie",
-                        "year": 2016
-                    },
-                    {
-                        "link": "/subtitle/sd1301452/diablo-guardin",
-                        "name": "Diablo Guardi\u00c3\u00a1n",
-                        "original_name": "Diablo Guardi\u00c3\u00a1n",
-                        "poster_url": "https://poster.subdl.com/poster/5aPeosEyu2axBCRoFJ9osO4mEPo.jpg",
-                        "type": "tv",
-                        "year": 2018
-                    }
-                    ...
-                ]
-            }
-        """
-        # if not self.api_key:
-        #     return []
-            
-        endpoint = f"{self.api3_url}auto"
-        params = {
-            'query': quote_plus(query), 
-        }
+        self.console = console
+        super().__init__()
         
-        try:
-            print(f"Search through fire: {endpoint}")
-            response = self.session.get(endpoint, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                debug(data = data)
-                if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']): jprint(data)
-                if data.get('results'):
-                    return data.get('results', [])
-                else:
-                    print("The fire did not return the results")
-            else:
-                print(f"API Response Code: {response.status_code}")
-                if response.status_code == 422:
-                    print("Error 422: invalid parameters or problematic fire fire")
-                
-        except Exception as e:
-            print(f"Error API: {e}")
-        
-        return []
-
-    def search_web(self, query):
-        """
-            Finding Subtitles Using Web Scraping
-            This method scrapes the subdl.com website to find subtitles for a given query.
-        """
-        url = f"{self.base_url}/search/{quote_plus(query)}"
-        debug(url = url)
-        try:
-            response = self.session.get(url)
-            debug(status_code = response.status_code)
-            if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
-                with open('subdl_search.html', 'wb') as f:
-                    f.write(response.content)
-            if response.status_code == 200:
-                results = self._parse_html_results(response.content)
-                if results:
-                    return results
-            else:
-                print(f"HTTP {response.status_code} for {url}")
-                
-        except Exception as e:
-            print(f"Error accessing {url}: {e}")
-        
-        return []
-
     def _parse_html_results(self, html):
         """
             Parse hasil HTML untuk mencari subtitle
@@ -222,85 +143,6 @@ class SubDL:
         
         return next_data_json
             
-    def print_list_api3(self, results):
-        """
-            Print the list of results from API3
-        """
-        if not results:
-            print("No results found.")
-            return
-        
-        for index, item in enumerate(results):
-            name = item.get('name', 'Unknown')
-            original_name = item.get('original_name', 'Unknown')
-            poster_url = item.get('poster_url', '')
-            year = item.get('year', 'Unknown')
-            subtitle_type = item.get('type', 'Unknown')
-            link = item.get('link', '')
-            
-            if subtitle_type == 'movie':
-                console.print(f"{index + 1}. [#00FFFF]{name}[/] [#FFFF00]({year})[/] - {subtitle_type}")
-            elif subtitle_type == 'tv':
-                console.print(f"{index + 1}. [#FFAA00]{name}[/] [#FFFF00]({year})[/] - {subtitle_type}")
-            # print(f"   Original Name: {original_name}")
-            # if poster_url:
-            #     print(f"   Poster URL: {poster_url}")
-            # print(f"   Link: {self.base_url}{link}\n")
-        
-        q = console.input("[bold #00FFFF]Enter the number of the subtitle to download:[/] ")
-        if q and q.lower() in ['x', 'exit', 'q', 'quit']:
-            print("Exiting...")
-            return None
-        try:
-            index = int(q) - 1
-            if 0 <= index < len(results):
-                selected_item = results[index]
-                return selected_item
-            else:
-                print("Invalid selection.")
-        except ValueError:
-            print("Please enter a valid number.")
-            
-        return None
-    
-    def print_list_web(self, results):
-        """
-            Print the list of results from web search
-            This method is not implemented yet.
-        """
-        print("Web search results:")
-        results = results.get('props', {}).get('pageProps', {}).get('list', [])
-        for index, item in enumerate(results):
-            debug(item = item)
-            name = item.get('name', 'Unknown')
-            original_name = item.get('original_name', 'Unknown')
-            poster_url = item.get('poster_url', '')
-            year = item.get('year', 'Unknown')
-            subtitle_type = item.get('type', 'Unknown')
-            link = item.get('link', '')
-            
-            print(f"{index + 1}. {name} ({year}) - {subtitle_type}")
-            # print(f"   Original Name: {original_name}")
-            # if poster_url:
-            #     print(f"   Poster URL: {poster_url}")
-            # print(f"   Link: {self.base_url}{link}\n")
-        
-        q = input("Enter the number of the subtitle to download: ")
-        if q and q.lower() in ['x', 'exit', 'q', 'quit']:
-            print("Exiting...")
-            return None
-        try:
-            index = int(q) - 1
-            if 0 <= index < len(results):
-                selected_item = results[index]
-                return selected_item
-            else:
-                print("Invalid selection.")
-        except ValueError:
-            print("Please enter a valid number.")
-            
-        return None
-    
     def get_download_links(self, data, build_id=None):
         """
             Get download links from the subtitle page
@@ -317,9 +159,9 @@ class SubDL:
             debug(slug = slug)
             sd_id = data.get('sd_id', '')
             debug(sd_id = sd_id)
-            url = f"{self.base_url}/_next/data/{build_id}/en/subtitle/{sd_id}/{slug}.json?slug={sd_id}&slug={slug}"
+            url = f"{Config.base_url}/_next/data/{build_id}/en/subtitle/{sd_id}/{slug}.json?slug={sd_id}&slug={slug}"
             debug(url = url)
-            response = self.session.get(url)
+            response = Config.session.get(url)
             if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
                 with open('subdl_subtitle_web1.json', 'wb') as f:
                     f.write(response.content)
@@ -329,10 +171,10 @@ class SubDL:
             
         elif isinstance(data, dict) and data.get('link'):
             # If data is a string, it might be a link
-            url = urljoin(self.base_url, data.get('link', ''))
+            url = urljoin(Config.base_url, data.get('link', ''))
             debug(url = url)
         
-            response = self.session.get(url)
+            response = Config.session.get(url)
             if any(d in os.environ for d in ['DEBUG', 'DEBUG_SERVER']):
                 with open('subdl_subtitle_web.html', 'wb') as f:
                     f.write(response.content)
@@ -369,7 +211,7 @@ class SubDL:
         output_path = os.path.join(output_dir, filename)
         
         try:
-            response = self.session.get(download_url, stream=True)
+            response = Config.session.get(download_url, stream=True)
             if response.status_code == 200:
                 with open(output_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
@@ -548,6 +390,27 @@ class SubDL:
         """
             Usage of the SubDL script
         """
+        hello = """███████╗██╗   ██╗██████╗ ██╗                                                                   
+██╔════╝██║   ██║██╔══██╗██║                                                                   
+███████╗██║   ██║██████╔╝██║                                                                   
+╚════██║██║   ██║██╔══██╗██║                                                                   
+███████║╚██████╔╝██████╔╝███████╗                                                              
+╚══════╝ ╚═════╝ ╚═════╝ ╚══════╝                                                              
+                                                                                               
+██████╗  ██████╗ ██╗    ██╗███╗   ██╗██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗          
+██╔══██╗██╔═══██╗██║    ██║████╗  ██║██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗         
+██║  ██║██║   ██║██║ █╗ ██║██╔██╗ ██║██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝         
+██║  ██║██║   ██║██║███╗██║██║╚██╗██║██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗         
+██████╔╝╚██████╔╝╚███╔███╔╝██║ ╚████║███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║         
+╚═════╝  ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝         
+                                                                                               
+██████╗ ██╗   ██╗     ██████╗██╗   ██╗███╗   ███╗██╗   ██╗██╗     ██╗   ██╗███████╗ ██╗██████╗ 
+██╔══██╗╚██╗ ██╔╝    ██╔════╝██║   ██║████╗ ████║██║   ██║██║     ██║   ██║██╔════╝███║╚════██╗
+██████╔╝ ╚████╔╝     ██║     ██║   ██║██╔████╔██║██║   ██║██║     ██║   ██║███████╗╚██║ █████╔╝
+██╔══██╗  ╚██╔╝      ██║     ██║   ██║██║╚██╔╝██║██║   ██║██║     ██║   ██║╚════██║ ██║ ╚═══██╗
+██████╔╝   ██║       ╚██████╗╚██████╔╝██║ ╚═╝ ██║╚██████╔╝███████╗╚██████╔╝███████║ ██║██████╔╝
+╚═════╝    ╚═╝        ╚═════╝ ╚═════╝ ╚═╝     ╚═╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝ ╚═╝╚═════╝ """
+        print(hello, "\n")
         parser = argparse.ArgumentParser(
             description="Subdl.com Scraper Subtitles",
             formatter_class=CustomRichHelpFormatter
