@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+
+# File: subdl/subdl.py
+# Author: Hadi Cahyadi <cumulus13@gmail.com>
+# Date: 2026-06-16
+# Description: Subdl.com Scraper Subtitles 
+#              Script to search and download subtitles from subdl.com 
+#              Using a scraping web and fire (if there is a fire key)
+# License: MIT
+
 """
 Subdl.com Scraper Subtitles 
 Script to search and download subtitles from subdl.com 
@@ -7,7 +16,10 @@ Using a scraping web and fire (if there is a fire key)
 
 import sys
 from ctraceback import CTraceback
-sys.excepthook = CTraceback(local=False)
+try:
+    sys.excepthook = CTraceback(local=False)
+except:
+    pass
 import os
 import requests
 import argparse
