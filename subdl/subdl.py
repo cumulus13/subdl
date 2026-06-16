@@ -415,7 +415,7 @@ class SubDL(WebScrap, ApiScrap):
             description="Subdl.com Scraper Subtitles",
             formatter_class=CustomRichHelpFormatter
         )
-        parser.add_argument('query', type=str, help='Search query for subtitles')
+        parser.add_argument('query', nargs="*", help='Search query for subtitles')
         parser.add_argument('--web', action='store_true', help='Force web search instead of API3')
         parser.add_argument('-p', '--download-path', type=str, default='subtitles', help='Path to save downloaded subtitles (default: subtitles)')
         
@@ -427,7 +427,7 @@ class SubDL(WebScrap, ApiScrap):
         
         if args.query:
             print(f"Searching for subtitles: {args.query}")
-            query = args.query[:-1] if args.query.endswith('/') else args.query
+            query = " ".join(args.query)[:-1] if args.query[-1].endswith(os.path.sep) else " ".join(args.query)
             download_path = args.download_path
             if os.path.isdir(query):
                 download_path = query

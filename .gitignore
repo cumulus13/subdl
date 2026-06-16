@@ -20,3 +20,12 @@ setup.py.1
 *.ini
 subdl2.py
 subdl1.py
+
+# Added entries (1 items)
+subdl/subtitles/
+
+# Added entries (1 items)
+*.log
+
+# Added entries (1 items)
+*sublime*
