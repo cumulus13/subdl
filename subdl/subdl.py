@@ -368,13 +368,17 @@ class SubDL(WebScrap, ApiScrap):
             Navigate through the results and download subtitles
         """
         data_links = {}
+        results = None
         if not force_web:
             # Search using API3
-            results = self.search_api3(query)
-            if results:
-                selected_item = self.print_list_api3(results)
-                debug(selected_item = selected_item)
-                data_links = self.get_download_links(selected_item)
+            try:
+                results = self.search_api3(query)
+                if results:
+                    selected_item = self.print_list_api3(results)
+                    debug(selected_item = selected_item)
+                    data_links = self.get_download_links(selected_item)
+            except Exception as e:
+                print(f"ERROR: {e}")
         
         if not results or force_web:
             print("No results found in API3, trying web search...")
@@ -438,7 +442,7 @@ class SubDL(WebScrap, ApiScrap):
         args = parser.parse_args()
         
         if args.query:
-            print(f"Searching for subtitles: {args.query}")
+            print(f"Searching for subtitles: {' '.join(args.query)}")
             query = " ".join(args.query)[:-1] if args.query[-1].endswith(os.path.sep) else " ".join(args.query)
             download_path = args.download_path
             if os.path.isdir(query):
